@@ -21,11 +21,13 @@ builder.Services.AddCors(options =>
 
 WebApplication webApp = builder.Build();
 
-webApp.MapControllers();
 webApp.UseHttpsRedirection();
 webApp.UseAuthorization();
+webApp.MapControllers();
+
 webApp.UseSwagger();
 webApp.UseSwaggerUI();
+
 webApp.UseCors("AllowAll");
 
 webApp.Run();
