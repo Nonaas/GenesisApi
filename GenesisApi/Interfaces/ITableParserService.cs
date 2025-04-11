@@ -4,6 +4,6 @@ namespace GenesisApi.Interfaces
 {
     public interface ITableParserService
     {
-        List<ParsedTableRow> ParseTableContent(string rawContent);
+        string ParseTableContentToJson(string rawContent);
     }
 }

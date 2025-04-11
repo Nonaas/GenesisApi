@@ -1,52 +1,110 @@
 ﻿using GenesisApi.Interfaces;
 using GenesisApi.Models;
+using Newtonsoft.Json;
 
 namespace GenesisApi.Services
 {
     public class TableParserService : ITableParserService
     {
-        public List<ParsedTableRow> ParseTableContent(string rawContent)
+        public string ParseTableContentToJson(string rawContent)
         {
-            var lines = rawContent
-                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                .Select(l => l.Trim())
-                .ToList();
+            var lines = rawContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                            .Select(line => line.Trim())
+                            .Where(line => !string.IsNullOrEmpty(line))
+                            .ToArray();
 
-            var headerLineIndex = lines.FindIndex(l => l.StartsWith(";"));
-            if (headerLineIndex < 0 || lines.Count <= headerLineIndex + 1)
+            var result = new TableData();
+            int lineIndex = 0;
+
+            // Parse Table ID (unchanged)
+            if (lineIndex < lines.Length && lines[lineIndex].StartsWith("Tabelle:"))
             {
-                throw new InvalidDataException("Table content could not be parsed: No headers found.");
+                result.TableId = lines[lineIndex++].Split(new[] { ':' }, 2)[1].Trim();
             }
 
-            var headers = lines[headerLineIndex]
-                .Split(';')
-                .Skip(1)
-                .ToList();
-
-            var dataLines = lines.Skip(headerLineIndex + 2)
-                                 .TakeWhile(l => !l.StartsWith("__________"));
-
-            var rows = new List<ParsedTableRow>();
-
-            foreach (var line in dataLines)
+            // Parse Title (modified for multi-line headers)
+            var titleLines = new List<string>();
+            while (lineIndex < lines.Length && lines[lineIndex].Contains(";;"))
             {
-                var parts = line.Split(';');
-                if (parts.Length < 2)
+                titleLines.Add(lines[lineIndex++].TrimEnd(';'));
+            }
+            result.Title = string.Join(" ", titleLines);
+
+            // Parse Column Headers (completely redesigned)
+            if (lineIndex < lines.Length && lines[lineIndex].StartsWith(";"))
+            {
+                var headerLines = new List<string[]>();
+
+                // Capture both header rows
+                for (int i = 0; i < 2; i++)
                 {
-                    continue;
+                    headerLines.Add(lines[lineIndex++].Split(';').Skip(1).ToArray());
                 }
 
-                var row = new ParsedTableRow { ["Label"] = parts[0] };
-
-                for (int i = 1; i < parts.Length && i - 1 < headers.Count; i++)
+                result.Columns = new List<Column>();
+                for (int i = 0; i < headerLines[0].Length; i++)
                 {
-                    row[headers[i - 1]] = parts[i];
-                }
+                    var mainHeader = headerLines[0][i].Trim();
+                    var subHeader = headerLines[1][i].Trim();
 
-                rows.Add(row);
+                    result.Columns.Add(new Column
+                    {
+                        Name = $"{mainHeader}",
+                        Unit = subHeader.Contains("(") ?
+                               subHeader.Split('(')[1].Trim(')') :
+                               subHeader,
+                        Measurement = subHeader.Contains(")") ?
+                                    subHeader.Split(')')[0].Trim() + ")" :
+                                    null
+                    });
+                }
             }
 
-            return rows;
+            // Parse Data Rows (modified for dynamic columns)
+            result.Data = new List<Dictionary<string, object>>();
+            while (lineIndex < lines.Length && !lines[lineIndex].StartsWith("__________"))
+            {
+                var parts = lines[lineIndex++].Split(';');
+                if (parts.Length < result.Columns.Count + 1) continue;
+
+                var entry = new Dictionary<string, object>();
+                entry["Year"] = parts[0].Trim();
+
+                for (int i = 0; i < result.Columns.Count; i++)
+                {
+                    var col = result.Columns[i];
+                    var value = parts[i + 1].Trim().TrimStart('+');
+
+                    entry[col.Name] = Utilities.Extensions.ParseDouble(value) ?? (object)value;
+                }
+
+                result.Data.Add(entry);
+            }
+
+            // Parse Footer
+            if (lineIndex < lines.Length && lines[lineIndex].StartsWith("__________"))
+            {
+                lineIndex++;
+            }
+
+            if (lineIndex < lines.Length)
+            {
+                result.Source = lines[lineIndex++];
+            }
+
+            if (lineIndex < lines.Length && lines[lineIndex].StartsWith("Stand:"))
+            {
+                var standParts = lines[lineIndex].Split(new[] { "Stand: " }, StringSplitOptions.None);
+                if (standParts.Length > 1)
+                {
+                    result.DateStand = standParts[1].Trim();
+                }
+            }
+
+            return JsonConvert.SerializeObject(result, Formatting.Indented);
         }
+
+        
+
     }
 }
