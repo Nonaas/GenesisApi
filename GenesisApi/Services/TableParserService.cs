@@ -16,13 +16,13 @@ namespace GenesisApi.Services
             var result = new TableData();
             int lineIndex = 0;
 
-            // Parse Table ID (unchanged)
+            // Parse Table ID
             if (lineIndex < lines.Length && lines[lineIndex].StartsWith("Tabelle:"))
             {
                 result.TableId = lines[lineIndex++].Split(new[] { ':' }, 2)[1].Trim();
             }
 
-            // Parse Title (modified for multi-line headers)
+            // Parse Title
             var titleLines = new List<string>();
             while (lineIndex < lines.Length && lines[lineIndex].Contains(";;"))
             {
@@ -30,7 +30,7 @@ namespace GenesisApi.Services
             }
             result.Title = string.Join(" ", titleLines);
 
-            // Parse Column Headers (completely redesigned)
+            // Parse Column Headers
             if (lineIndex < lines.Length && lines[lineIndex].StartsWith(";"))
             {
                 var headerLines = new List<string[]>();
@@ -60,7 +60,7 @@ namespace GenesisApi.Services
                 }
             }
 
-            // Parse Data Rows (modified for dynamic columns)
+            // Parse Data Rows
             result.Data = new List<Dictionary<string, object>>();
             while (lineIndex < lines.Length && !lines[lineIndex].StartsWith("__________"))
             {
