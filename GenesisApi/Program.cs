@@ -1,9 +1,11 @@
 using GenesisApi.Interfaces;
+using GenesisApi.Models;
 using GenesisApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services
+builder.Services.Configure<GenesisConf>(builder.Configuration.GetSection("Genesis"));
 builder.Services.AddScoped<ITableParserService, TableParserService>();
 builder.Services.AddHttpClient();
 builder.Services.AddControllers();
