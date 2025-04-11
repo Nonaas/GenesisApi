@@ -5,10 +5,10 @@ namespace GenesisApi.Models
     public class TableRequest
     {
         [Required]
-        public string Token { get; set; } = string.Empty;
-
-        [Required]
         public string TableCode { get; set; } = string.Empty;
+
+        
+        public string Token { get; set; } = string.Empty;
 
         public string Area { get; set; } = "all";
 
